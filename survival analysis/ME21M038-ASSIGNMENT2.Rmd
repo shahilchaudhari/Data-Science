@@ -1,0 +1,210 @@
+---
+title: "Assignment 2 - MA5755 (Data analytics and Visualization) Roll no: ME21M038"
+output: "html_document"
+date:  "15/04/2021"
+---
+
+```{r setup, include=FALSE}
+library(MASS)
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(InformationValue)
+require(boot)
+library(survival)
+library(survminer)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+```{r,include=TRUE}
+df = read.csv("datacl.csv")
+
+set.seed(2021)
+x = data.frame(df$x1,df$x2)
+y = data.frame(df$y)
+train = sample(1:nrow(x),2/3*nrow(x))
+test = (-train)
+y.test = y[test]
+df2  = data.frame(x[train,1],x[train,2],y[train,1])
+
+colnames(df2)[1] = "X1"
+colnames(df2)[2] = "X2"
+colnames(df2)[3] = "Y"
+
+# plot
+ggplot(df2,aes(x=X1,y=X2))+geom_point(aes(col=factor(Y)))+labs(color="  Y")
+```
+
+### Logistic regression model
+
+```{r,include=TRUE}
+sample = sample(c(TRUE,FALSE),nrow(df),replace=TRUE,prob=c(2/3,1/3))
+train = df[sample,]
+test = df[!sample,]
+
+# logistic regression model
+lr.model = glm(formula = y~x1+x2,family = "binomial",data = train)
+summary(lr.model)$coefficients
+```
+
+### Hypothesis testing
+
+#### Hypothesis testing for X1    \
+```{r,include=TRUE}
+tx1=t.test(train$x1~train$y,alt="two.sided",var.eq=FALSE,paired=FALSE)
+tx1
+```
+# \
+#### Hypothesis testing for X2    \
+```{r,echo=TRUE}
+tx2=t.test(train$x2~train$y)
+tx2
+```
+
+### Leave one out cross validation
+```{r,echo=TRUE}
+# y~x1
+glm.fit = glm(data = df,y~x1)
+cv.error1 = cv.glm(df,glm.fit)$delta[1]
+
+# y~x2
+glm.fit = glm(data = df,y~x2)
+cv.error2 = cv.glm(df,glm.fit)$delta[1]
+
+# y~x1+x2
+glm.fit = glm(data = df,y~x1+x2)
+cv.error12 = cv.glm(df,glm.fit)$delta[1]
+```
+### Pediction error
+### for y = x1 model `r cv.error1*100` % 
+### for y = x2 model `r cv.error2*100 ` % 
+### for y = x1+x2 model `r cv.error12*100` % 
+### y=x1+x2 is the best model in terms of accuracy. Model accuracy = `r (1-cv.error12)*100` %
+# \
+
+## Problem 2
+
+```{r,echo=TRUE}
+# linear discriminant analysis model
+
+train$X = NULL
+test$X = NULL
+lda.model = lda(y~x1+x2,data = train)
+pred = predict(lda.model,test)
+
+lda = confusionMatrix(pred$class,test$y)
+lda_err = (lda$`0`[2]+lda$`1`[1])/(lda$`0`[1]+lda$`0`[2]+lda$`1`[1]+lda$`1`[2])
+```
+
+### Linear Discriminant analasis Confusion Matrix
+```{r,echo=FALSE}
+lda
+```
+
+###  Missclassification Error is equal to `r lda_err*100` %
+
+```{r,echo=TRUE}
+# quadratic discriminant analysis
+
+qda.model = qda(y~x1+x2,data = train)
+pred1 = predict(qda.model,test)
+
+qda = confusionMatrix(pred1$class,test$y)
+qda_err = (qda$`0`[2]+qda$`1`[1])/(qda$`0`[1]+qda$`0`[2]+qda$`1`[1]+qda$`1`[2])
+```
+
+### Quadratic Discriminant analasis Confusion Matrix
+```{r,echo=FALSE}
+qda
+```
+
+### Missclassification Error is equal to `r lda_err*100` %
+
+### Two obeservation of LDA False negative is converted into True Positive in QDA so QDA is better in terms of accuracy
+### prediction accuracy LDA   `r mean(pred$class==test$y)*100`  % and QDA   `r mean(pred1$class==test$y)*100` %
+# \
+
+## Problem 3
+
+### A)
+```{r,echo=TRUE}
+
+company = c("A","A","A","A","A","B","B","B","B","B")
+phone = c("A1","A2","A3","A4","A5","B1","B2","B3","B4","B5")
+t = c(1.1,2.2,3.3,4,4,1,1.5,3.5,4,4)
+eve = c(1,1,1,0,0,0,1,1,0,0)
+Surv(t,eve)
+
+sobj = data.frame(company,phone,t,eve)
+
+# survfit object builds
+km = survfit(Surv(t,eve)~1,data=sobj)
+plot(km,xlab="Years",ylab="Estimated survival probability")
+
+fit.surv = surv_fit(Surv(t,eve)~company,data=sobj)
+median = surv_median(fit.surv)
+```
+
+### Survival time median of company B = `r median$median[2]` years is more than company A = `r median$median[1]` years
+
+### B)
+```{r,echo=TRUE}
+company = c("A","A","A","A","A","C","C","C","C","C")
+phone = c("A1","A2","A3","A4","A5","C1","C2","C3","C4","C5")
+t = c(1.1,2.2,3.3,4,4,1,1.5,3.5,2,5)
+eve = c(1,1,1,0,0,0,1,1,0,0)
+
+sobj_new = data.frame(company,phone,t,eve)
+fit.surv = surv_fit(Surv(t,eve)~1,data = sobj_new)
+median = surv_median(fit.surv)
+```
+### Yes we can compare company A and C
+### Survival time median of company C = `r median$median[2]` years is more than company A = `r median$median[1]` years
+
+### C)
+### Survival Probability at 2.25 years 64.8 %
+
+### Survival Probability at 3.9 years 38.9 %
+# \
+
+## Problem 4
+
+### A) This kind of censoring can cause bias because of loss of data so that censoring mechanism affect survival time in this case.-> Denpendent
+
+### B) Above 99 years patients are at high risk of death even though they are treated well so survival time for censored and uncensored wont affect esimate of time to event. -> Independent
+
+### C) This condition is same as previous patient is at high risk so censoring wont affect estimate of time to event. -> Independent
+# \
+
+## Problem 5
+
+```{r,echo=TRUE}
+df = read.csv("datasur.csv")
+df$X = NULL
+x = model.matrix(survival.status~.,df)[,-1]
+y = df$survival.status
+
+# Kaplan Meir curve
+fit.sex = survfit(Surv(time,event = survival.status)~Sex,data=df)
+ggsurvplot(fit.sex,xlab="years",pval=TRUE)
+
+# logrank test
+test.logrank = survdiff(Surv(df$time,event = df$survival.status)~df$Sex)
+test.logrank
+```
+
+### pvlaue = 0.03 which is less than 0.05 there is significant difference
+
+```{r,echo=TRUE}
+# Cox proportional hazard model
+fit.cox = coxph(Surv(df$time,event=df$survival.status)~df$Sex+df$Age)
+summary(fit.cox)
+fit.cox$coefficients
+```
+
+### Probability  = `r 6.022736*0.000001`
+
