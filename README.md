@@ -4,6 +4,6 @@
  This repository contains some helpful codes files which are very generic in terms of any kind of analysis. I wrote these files in Rmd and ipython notebook form.
 
 
-### Survival analasis of Cancer patients according with respect to sex
+### Survival analasis of Cancer patients with respect to sex
 
 ![survival analysis](https://user-images.githubusercontent.com/89005886/163535864-2cbfc572-de96-471e-90b2-b11e3227e0fd.png)
